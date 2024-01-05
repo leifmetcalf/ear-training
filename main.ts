@@ -1,45 +1,68 @@
-type Group = "White" | "Black1" | "Black2";
-
-type Note = { group: Group; order: number };
-
 const white_height = 3.3;
 const black_width = 0.6;
 const black_spacing = 1.1;
 const stroke_width = 0.08;
 
-const notes = new Map<number, Note>([
-  [0, { group: "White", order: 0 }],
-  [1, { group: "Black1", order: 0 }],
-  [2, { group: "White", order: 1 }],
-  [3, { group: "Black1", order: 1 }],
-  [4, { group: "White", order: 2 }],
-  [5, { group: "White", order: 3 }],
-  [6, { group: "Black2", order: 0 }],
-  [7, { group: "White", order: 4 }],
-  [8, { group: "Black2", order: 1 }],
-  [9, { group: "White", order: 5 }],
-  [10, { group: "Black2", order: 2 }],
-  [11, { group: "White", order: 6 }],
-]);
+type Group = "White" | "Black1" | "Black2";
+
+class Note {
+  pitch: number;
+  octave: number;
+  tone: number;
+  group: Group;
+  order: number;
+
+  constructor(pitch: number) {
+    this.pitch = pitch;
+    this.octave = Math.floor(pitch / 12);
+    this.tone = pitch % 12;
+    const groups: [Group, number][] = [
+      ["White", 0],
+      ["Black1", 0],
+      ["White", 1],
+      ["Black1", 1],
+      ["White", 2],
+      ["White", 3],
+      ["Black2", 0],
+      ["White", 4],
+      ["Black2", 1],
+      ["White", 5],
+      ["Black2", 2],
+      ["White", 6],
+    ];
+    const [group, order] = groups[this.tone];
+    this.group = group;
+    this.order = order;
+  }
+}
 
 const audioContext = new AudioContext();
-
+const oscillators: [OscillatorNode, boolean][] = [];
 const button = document.getElementById("start");
+if (button !== null) {
+  button.onclick = () => {
+    for (let i = 0; i < oscillators.length; i++) {
+      const [osc, started] = oscillators[i];
+      if (!started) {
+        osc.start();
+        oscillators[i][1] = true;
+      }
+    }
+  };
+}
 
-function make_key(pitch: number, octave: number, group: Group, order: number) {
+function make_key(note: Note) {
+  const { pitch, octave, group, order } = note;
   const gain = new GainNode(audioContext);
   gain.connect(audioContext.destination);
   gain.gain.value = 0;
   const osc = new OscillatorNode(audioContext);
-  osc.frequency.value = 440 * 2 ** ((pitch - 9) / 12);
+  osc.type = "triangle";
+  osc.frequency.value = 440 * 2 ** ((pitch - 57) / 12);
   osc.connect(gain);
-  let started = false;
+  oscillators.push([osc, false]);
   const key = document.createElementNS("http://www.w3.org/2000/svg", "rect");
   key.onmousedown = () => {
-    if (!started) {
-      osc.start();
-      started = true;
-    }
     const now = audioContext.currentTime;
     gain.gain.setTargetAtTime(1, now, 0.01);
     gain.gain.setTargetAtTime(0, now + 0.4, 0.01);
@@ -84,19 +107,23 @@ function make_keyboard(n: number) {
     "g"
   );
   keyboard.append(black_keys);
-  for (let i = 0; i < n; i++) {
-    const n = i % 12;
-    const note = notes.get(n);
-    if (note === undefined) {
-      continue;
-    }
-    const key = make_key(i, Math.floor(i / 12), note.group, note.order);
+  for (let i = 48; i < 48 + n; i++) {
+    const note = new Note(i);
+    const key = make_key(note);
     (note.group === "White" ? white_keys : black_keys).append(key);
   }
+  const left = Math.min(
+    +white_keys.firstElementChild?.getAttribute("x")!,
+    +black_keys.firstElementChild?.getAttribute("x")!
+  );
+  const right = Math.max(
+    +white_keys.lastElementChild?.getAttribute("x")! + 1,
+    +black_keys.lastElementChild?.getAttribute("x")! + black_width
+  );
   keyboard.setAttribute(
     "viewBox",
-    `${0 - stroke_width / 2} ${0 - stroke_width / 2} ${
-      white_keys.childElementCount + stroke_width
+    `${left - stroke_width / 2} ${0 - stroke_width / 2} ${
+      right - left + stroke_width
     } ${white_height + stroke_width}`
   );
   return keyboard;
