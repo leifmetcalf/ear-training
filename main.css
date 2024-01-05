@@ -1,0 +1,20 @@
+:root {
+    --keyboard-black: #221111;
+  }
+
+* {
+    margin: 0;
+}
+
+
+.key {
+    stroke: var(--keyboard-black);
+}
+
+.white.key {
+    fill: #FFFFF9;
+}
+
+.black.key {
+    fill: var(--keyboard-black);
+}
